@@ -2,25 +2,85 @@ const express = require("express");
 const connectDB = require("./config/database");
 const app = express();
 const User = require("./models/user");
+const { validateSignUpData } = require("./utils/validation");
+const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const { userAuth } = require("./middleware/auth");
 
-// middleware express middileware which are used to read json format .
+// middleware express middleware which are used to read json format .
 app.use(express.json());
+//middleware for cookies
+app.use(cookieParser());
+//middleware for auth.
 
 app.post("/signup", async (req, res) => {
-  //  Creating a new  instance of the User model
-  const user = new User(req.body);
   try {
+    //validate of data...
+    validateSignUpData(req);
+    const { firstName, lastName, emailId, password } = req.body;
+    //Encrypt the password...
+    const passwordHash = await bcrypt.hash(password, 10); // 10 round is starndard salt that's why i using
+
+    //  Creating a new  instance of the User model
+    const user = new User({
+      firstName,
+      lastName,
+      emailId,
+      password: passwordHash,
+    });
     await user.save();
     res.send("User Added Successfully");
   } catch (err) {
-    res.status(400).send("Error saving the user:" + err.message);
+    res.status(400).send("ERROR:" + err.message);
+  }
+});
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+
+    if (!emailId || !password) {
+      return res.status(400).send("Email and password are required");
+    }
+
+    const user = await User.findOne({ emailId: emailId });
+
+    if (!user) {
+      return res.status(404).send("E invalid credentials");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (isPasswordValid) {
+      // Create a JWT Token
+      const token = await jwt.sign({ _id: user._id }, "DEV@Tinder$790");
+      console.log("toke is :" + token);
+
+      // Add the token to cookie and send the response back to the user
+      res.cookie("token", token);
+
+      return res.send("Login Successful!!!");
+    } else {
+      return res.status(401).send("p invalid credentials");
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
+app.get("/profile", userAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    res.send(user);
+  } catch (err) {
+    res.status(400).send("ERROR : " + err.message);
+  }
+});
 // Get user by email
 app.get("/user", async (req, res) => {
   const userEmail = req.body.emailId;
-  console.log(userEmail);
+
   try {
     const users = await User.findOne({ emailId: userEmail });
     if (!users) {
@@ -69,7 +129,7 @@ app.patch("/user/:userId", async (req, res) => {
     if (!isUpdateAllowed) {
       throw new Error("Update not allowed");
     }
-  // this is api based validation
+    // this is api based validation
     // if (data.skills.length > 5) {
     //   throw new Error("Skills can't be more than 10");
     // }
@@ -93,5 +153,5 @@ connectDB()
     });
   })
   .catch((err) => {
-    console.error("Database can not be conntected");
+    console.error("Database can not be conntected :" + err.message);
   });
