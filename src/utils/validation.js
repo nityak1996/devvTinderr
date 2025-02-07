@@ -10,6 +10,6 @@ const validateSignUpData = (req) => {
   }
 };
 
-module.exports = {
+module.exports = { 
     validateSignUpData
 }
