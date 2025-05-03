@@ -2,9 +2,7 @@ const express = require("express");
 const authRouter = express.Router();
 const { validateSignUpData } = require("../utils/validation");
 const User = require("../models/user");
-const bcrypt = require("bcrypt")
-
-
+const bcrypt = require("bcrypt");
 
 authRouter.post("/signup", async (req, res) => {
   try {
@@ -21,8 +19,16 @@ authRouter.post("/signup", async (req, res) => {
       emailId,
       password: passwordHash,
     });
-    await user.save();
-    res.send("User Added Successfully");
+    const savedUser = await user.save();
+    // Create a JWT Token
+    const token = await user.getJWT();
+
+    // Add the token to cookie and send the response back to the user
+    res.cookie("token", token, {
+      expires: new Date(Date.now() + 10 * 3600000),
+    });
+
+    res.json({ message: "User Added Successfully.!", data: savedUser });
   } catch (err) {
     res.status(400).send("ERROR:" + err.message);
   }
@@ -49,10 +55,10 @@ authRouter.post("/login", async (req, res) => {
 
       // Add the token to cookie and send the response back to the user
       res.cookie("token", token, {
-        expires: new Date(Date.now() + 7 * 3600000),
+        expires: new Date(Date.now() + 10 * 3600000),
       });
 
-      return res.send("Login Successful!!!");
+      return res.send(user);
     } else {
       return res.status(401).send("p invalid credentials");
     }

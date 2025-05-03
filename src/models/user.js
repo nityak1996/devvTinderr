@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
     firstName: {
       type: String,
       required: true,
-      index: true,
+      index: true, // unique:true, unique is more efficient than index.
       minLength: 4,
       maxLength: 50,
     },
